@@ -21,6 +21,7 @@ type Tag struct {
 }
 
 type AccountInfo struct {
+	Profile		string 	`json:"profile"`
 	Mail 		string 	`json:"email"`
 	Name 		string 	`json:"name"`
 	Avatar		string 	`json:"avatar"`

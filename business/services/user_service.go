@@ -21,6 +21,9 @@ type UserService interface {
 	Get(userID uint) models.User
 	GetPage(current int, pageSize int, params map[string]string) models.Page
 	CheckMenu(userID uint, target models.Menu) bool
+	UpdateAvatar(uid uint, url string) (models.User, error)
+	UpdateAccount(uid uint, params models.AccountInfo) error
+	UpdatePassword(uid uint, params models.PasswordForm) error
 }
 
 func NewUserService(repo repositories.AdminRepo) UserService {
@@ -31,6 +34,57 @@ type userService struct {
 	repo repositories.AdminRepo
 }
 
+func (s *userService) UpdatePassword(uid uint, params models.PasswordForm) (err error) {
+
+	user := s.repo.GetUserByID(uid)
+	if user.Password != utils.Md5s(params.Old) {
+		err = errors.New("原密码错误")
+		return
+	}
+
+	_, err = s.repo.UpdateUser(models.UserForm{
+		Form:     models.Form{
+			ID:	uid,
+		},
+		Password: params.Password,
+	}, func(user *models.User, params models.UserForm) {
+		user.Password = utils.Md5s(params.Password)
+	})
+
+	return
+}
+
+func (s *userService) UpdateAccount(uid uint, params models.AccountInfo) (err error) {
+	id := s.repo.GetUserByMail(params.Mail).ID
+	if !(id == 0) && !(id == uid) {
+		err = errors.New("该邮箱已经被注册了")
+		return
+	}
+
+	_, err = s.repo.UpdateUser(models.UserForm{
+		Form:     models.Form{
+			ID:	uid,
+		},
+		Mail:     params.Mail,
+		Name:     params.Name,
+	}, func(user *models.User, params models.UserForm) {
+		user.Name = params.Name
+		user.Mail = params.Mail
+	})
+
+	return
+}
+
+func (s *userService) UpdateAvatar(uid uint, url string) (models.User, error) {
+	return s.repo.UpdateUser(models.UserForm{
+		Form:     models.Form{
+			ID:	uid,
+		},
+		Avatar:   url,
+	}, func(user *models.User, params models.UserForm) {
+		user.Avatar = params.Avatar
+	})
+}
 
 func (s *userService) Login(params models.LoginParams) (user models.User, err error) {
 
@@ -178,3 +232,4 @@ func (s *userService) CheckMenu(userID uint, target models.Menu) bool {
 
 
 }
+

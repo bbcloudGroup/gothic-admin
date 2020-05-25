@@ -20,6 +20,7 @@ type UserForm struct {
 	Password string `json:"password"`
 	Name 	string 	`json:"name"`
 	Role 	[]Role 	`json:"roles"`
+	Avatar	string 	`json:"avatar"`
 }
 
 type RegisterParams struct {
@@ -52,3 +53,7 @@ type MenuForm struct {
 	Children []MenuForm `json:"children"`
 }
 
+type PasswordForm struct {
+	Old 	string 	`json:"old"`
+	Password string	`json:"password"`
+}

@@ -7,8 +7,12 @@ import (
 	"gothic-admin/business/services"
 	"gothic-admin/utils"
 	"gothic-admin/web/middleware"
+	"io"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -33,6 +37,9 @@ func (c *ApiController) BeforeActivation(b mvc.BeforeActivation){
 	b.Handle("GET", "/current", "GetCurrent", middleware.Jwt)
 	b.Handle("GET", "/menu", "GetMenu", middleware.Jwt)
 	b.Handle("GET", "/account", "GetAccount", middleware.Jwt)
+	b.Handle("POST", "/account", "PostAccount", middleware.Jwt)
+	b.Handle("POST", "/avatar", "PostAvatar", middleware.Jwt)
+	b.Handle("POST", "/password", "PostPassword", middleware.Jwt)
 }
 
 func (c *ApiController) GetMenu() (res struct {
@@ -64,6 +71,7 @@ func (c *ApiController) GetCurrent(ctx iris.Context) models.User {
 func (c *ApiController) GetAccount(ctx iris.Context) models.AccountInfo {
 	user := c.User.Get(getUserID(ctx))
 	return models.AccountInfo{
+		Profile:	 "abc",
 		Mail:		 user.Mail,
 		Name:        user.Name,
 		Avatar:      user.Avatar,
@@ -89,8 +97,94 @@ func (c *ApiController) GetAccount(ctx iris.Context) models.AccountInfo {
 			},
 		},
 		Address: "西湖区工专路 77 号",
-		Phone:   "0752-268888888",
+		Phone:   user.Mobile,
 	}
+}
+
+func (c *ApiController) PostAccount(ctx iris.Context) models.Response {
+
+	var params models.AccountInfo
+	_ = ctx.ReadJSON(&params)
+
+	err := c.User.UpdateAccount(getUserID(ctx), params)
+
+	if err != nil {
+		return models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		}
+	}
+
+	return models.Response{
+		Status:  "ok",
+		Message: "更新成功",
+	}
+
+}
+
+func (c *ApiController) PostAvatar(ctx iris.Context) models.Response {
+
+
+	file, info, err := ctx.Request().FormFile("avatar")
+	if err != nil {
+		ctx.StatusCode(iris.StatusInternalServerError)
+		return models.Response{
+			Status:  "error",
+			Message: "非法的上传文件",
+		}
+	}
+	defer file.Close()
+
+	dir := "/public/uploads"
+	fileSuffix := path.Ext(info.Filename)
+	filenameOnly := strings.TrimSuffix(info.Filename, fileSuffix)
+	fname := utils.Md5s(filenameOnly + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + utils.RandomString(10)) + fileSuffix
+	out, err := os.OpenFile("." + dir + "/" +fname, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		ctx.StatusCode(iris.StatusInternalServerError)
+		return models.Response{
+			Status:  "error",
+			Message: "头像更新失败",
+		}
+	}
+	defer out.Close()
+	io.Copy(out, file)
+
+	url := dir + "/" + fname
+
+	_, err = c.User.UpdateAvatar(getUserID(ctx), url)
+	if err != nil {
+		return models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		}
+	}
+
+	return models.Response{
+		Status:   "ok",
+		Message:  url,
+	}
+
+}
+
+
+func (c *ApiController) PostPassword(ctx iris.Context) models.Response {
+
+	var params models.PasswordForm
+	_ = ctx.ReadJSON(&params)
+
+	err := c.User.UpdatePassword(getUserID(ctx), params)
+	if err != nil {
+		return models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		}
+	}
+	return models.Response{
+		Status:  "ok",
+		Message: "密码修改成功",
+	}
+
 }
 
 
